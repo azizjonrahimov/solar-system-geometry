@@ -1,0 +1,811 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Solar System Geometry</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@400;600;700;800&display=swap">
+<style>
+  :root {
+    color-scheme: dark;
+    --space: #0a0e2a;
+    --space-2: #121842;
+    --space-3: #1b2360;
+    --line: #2c3684;
+    --text: #eef0ff;
+    --muted: #aab1e6;
+    --gold: #ffc93c;
+    --coral: #ff7a6b;
+    --aqua: #3de0d0;
+    --lilac: #b9a5ff;
+    --display: "Fredoka", "Trebuchet MS", "Segoe UI", sans-serif;
+    --body: "Nunito", "Segoe UI", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--space);
+    color: var(--text);
+    font-family: var(--body);
+    font-size: 18px;
+    line-height: 1.6;
+  }
+  h1, h2, h3 { font-family: var(--display); line-height: 1.15; text-wrap: balance; margin: 0; }
+  h1 { font-size: clamp(2.1rem, 6vw, 3.6rem); font-weight: 700; }
+  h2 { font-size: clamp(1.7rem, 4.2vw, 2.5rem); font-weight: 600; }
+  h3 { font-size: 1.35rem; font-weight: 600; }
+  p { margin: 0; max-width: 65ch; }
+  a { color: var(--aqua); }
+  button, input { font: inherit; color: inherit; }
+  :focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+
+  .wrap { max-width: 1080px; margin: 0 auto; padding-inline: 20px; }
+
+  /* ---------- nav ---------- */
+  nav {
+    position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20;
+    background: rgba(10, 14, 42, .92);
+    border-bottom: 2px solid var(--line);
+  }
+  nav .wrap { display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: center; padding-block: 10px; }
+  nav .brand { font-family: var(--display); font-weight: 700; color: var(--gold); margin-right: auto; }
+  nav a { color: var(--text); text-decoration: none; font-weight: 700; font-size: .95rem; padding: 4px 10px; border-radius: 999px; }
+  nav a:hover { background: var(--space-3); }
+
+  /* ---------- hero ---------- */
+  header.hero { padding-block: 36px 20px; }
+  .hero .wrap { display: flex; flex-direction: column; gap: 14px; }
+  .eyebrow { font-weight: 800; letter-spacing: .12em; text-transform: uppercase; font-size: .8rem; color: var(--aqua); }
+  .hero h1 span { color: var(--gold); }
+  .hero p.lead { font-size: 1.2rem; color: var(--muted); }
+
+  /* ---------- 3D stage ---------- */
+  .stage-block { display: flex; flex-direction: column; gap: 12px; padding-bottom: 40px; }
+  #stage {
+    position: relative; width: 100%; height: min(70vh, 600px); min-height: 360px;
+    border: 2px solid var(--line); border-radius: 18px; overflow: hidden;
+    background: #050719; touch-action: pan-y; cursor: grab;
+  }
+  #stage.dragging { cursor: grabbing; }
+  #stage canvas { display: block; width: 100%; height: 100%; }
+  .plabel {
+    position: absolute; left: 0; top: 0; pointer-events: none; white-space: nowrap;
+    font-size: .78rem; font-weight: 800; text-shadow: 0 0 4px #000, 0 0 8px #000;
+    will-change: transform;
+  }
+  .hud {
+    position: absolute; left: 12px; top: 10px; pointer-events: none;
+    font-size: .85rem; font-weight: 700; color: var(--muted);
+    font-variant-numeric: tabular-nums; text-shadow: 0 0 6px #000;
+  }
+  .hud b { color: var(--gold); }
+  .hint { position: absolute; right: 12px; bottom: 10px; pointer-events: none; font-size: .8rem; color: var(--muted); text-shadow: 0 0 6px #000; }
+
+  .controls { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; }
+  .btn {
+    background: var(--space-3); border: 2px solid var(--line); border-radius: 999px;
+    padding: 6px 16px; font-weight: 800; cursor: pointer;
+  }
+  .btn:hover { border-color: var(--aqua); }
+  .btn[aria-pressed="true"] { background: var(--gold); border-color: var(--gold); color: #1a1400; }
+  .seg { display: flex; gap: 6px; }
+  .ctl { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: .95rem; }
+  input[type="range"] { accent-color: var(--gold); width: 140px; max-width: 100%; }
+  input[type="checkbox"] { accent-color: var(--gold); width: 18px; height: 18px; }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip {
+    display: flex; align-items: center; gap: 7px;
+    background: transparent; border: 2px solid var(--line); border-radius: 999px;
+    padding: 4px 13px 4px 8px; font-weight: 700; font-size: .92rem; cursor: pointer;
+  }
+  .chip i { width: 13px; height: 13px; border-radius: 50%; display: block; }
+  .chip[aria-pressed="true"] { background: var(--space-3); border-color: var(--text); }
+  #info {
+    background: var(--space-2); border-radius: 14px; padding: 14px 18px;
+    display: flex; flex-wrap: wrap; gap: 8px 28px; align-items: baseline;
+  }
+  #info h3 { flex: 0 0 100%; }
+  #info .stat { font-size: .95rem; color: var(--muted); }
+  #info .stat b { color: var(--text); font-size: 1.1rem; font-variant-numeric: tabular-nums; }
+  #info p { flex: 0 0 100%; }
+  .note { font-size: .92rem; color: var(--muted); }
+
+  /* ---------- sections ---------- */
+  section { padding-block: 52px; border-top: 2px solid var(--line); }
+  section > .wrap { display: flex; flex-direction: column; gap: 22px; }
+  .sec-head { display: flex; flex-direction: column; gap: 8px; }
+  .tag { font-family: var(--display); font-weight: 600; font-size: 1rem; }
+  #notice .tag, #notice h2 em { color: var(--coral); }
+  #math .tag, #math h2 em { color: var(--aqua); }
+  #create .tag, #create h2 em { color: var(--lilac); }
+  h2 em { font-style: normal; }
+
+  .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px; }
+  .spot { display: flex; flex-direction: column; gap: 6px; padding-left: 16px; border-left: 4px solid var(--c, var(--coral)); }
+  .spot h3 { color: var(--c, var(--coral)); }
+
+  .wonder { background: var(--space-2); border-radius: 16px; padding: 18px 22px; display: flex; flex-direction: column; gap: 8px; }
+  .wonder ul, .plain ul { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column; gap: 6px; }
+
+  .idea { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 22px; align-items: start; padding-block: 18px; }
+  .idea + .idea { border-top: 1px dashed var(--line); }
+  .idea .words { display: flex; flex-direction: column; gap: 12px; }
+  .idea h3 { color: var(--c); font-size: 1.5rem; }
+  .formula {
+    font-family: var(--display); font-weight: 600; font-size: clamp(1.4rem, 4vw, 1.9rem);
+    color: var(--c); background: var(--space-2); border-radius: 14px;
+    padding: 12px 18px; align-self: flex-start; max-width: 100%; overflow-x: auto; white-space: nowrap;
+  }
+  .formula small { display: block; font-family: var(--body); font-weight: 600; font-size: .85rem; color: var(--muted); white-space: normal; }
+  .fig { display: flex; flex-direction: column; gap: 8px; }
+  .fig canvas { width: 100%; aspect-ratio: 16 / 10; max-width: 100%; background: #050719; border-radius: 14px; border: 2px solid var(--line); display: block; }
+  .readout { font-weight: 700; font-variant-numeric: tabular-nums; font-size: .98rem; }
+  .readout b { color: var(--gold); }
+  .bar { height: 12px; background: var(--space-3); border-radius: 999px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--coral); border-radius: 999px; }
+
+  .scroll-x { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; font-size: .95rem; }
+  th, td { padding: 6px 10px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th:first-child, td:first-child { text-align: left; }
+  th { color: var(--muted); font-size: .8rem; letter-spacing: .06em; text-transform: uppercase; }
+  td.match { color: var(--aqua); font-weight: 800; }
+  #k3chart { width: 100%; height: auto; display: block; background: #050719; border-radius: 14px; border: 2px solid var(--line); }
+
+  .oops { background: #2a1430; border: 2px solid var(--coral); border-radius: 16px; padding: 18px 22px; display: flex; flex-direction: column; gap: 10px; }
+  .oops h3 { color: var(--coral); }
+  .plain { display: flex; flex-direction: column; gap: 10px; }
+
+  footer { border-top: 2px solid var(--line); padding-block: 26px 40px; color: var(--muted); font-size: .9rem; }
+  footer .wrap { display: flex; flex-direction: column; gap: 6px; }
+
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+
+<nav>
+  <div class="wrap">
+    <span class="brand">Solar System Geometry</span>
+    <a href="#model">3D model</a>
+    <a href="#notice">1 · Notice</a>
+    <a href="#math">2 · The maths</a>
+    <a href="#create">3 · Create</a>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="eyebrow">Geometry in the World · Midterm Project</span>
+    <h1>Eight planets, one <span>giant shape machine</span></h1>
+    <p class="lead">The planets do not wander around. Each one draws a shape in space, again and again. This site shows the shapes, and the short formulas that explain them.</p>
+  </div>
+</header>
+
+<div class="wrap stage-block" id="model">
+  <div id="stage">
+    <div class="hud">Earth years passed: <b id="years">0.0</b></div>
+    <div class="hint">Drag to turn the view</div>
+  </div>
+
+  <div class="controls">
+    <button class="btn" id="play" aria-pressed="false">Pause</button>
+    <label class="ctl" for="speed">Speed <input type="range" id="speed" min="1" max="100" value="20"></label>
+    <div class="seg" role="group" aria-label="View">
+      <button class="btn" id="viewOrbit" aria-pressed="true">Orbit view</button>
+      <button class="btn" id="viewTravel" aria-pressed="false">Travel view</button>
+    </div>
+    <label class="ctl" for="real"><input type="checkbox" id="real"> Real distances</label>
+    <div class="seg" role="group" aria-label="Zoom">
+      <button class="btn" id="zoomOut" aria-label="Zoom out">−</button>
+      <button class="btn" id="zoomIn" aria-label="Zoom in">+</button>
+    </div>
+  </div>
+
+  <div class="chips" id="chips"></div>
+  <div id="info"></div>
+  <p class="note"><b>Orbit view</b> shows the planets going around the Sun. <b>Travel view</b> shows the whole Solar System flying through the galaxy, so each planet draws a spiral. Planet sizes are made bigger so you can see them.</p>
+</div>
+
+<!-- ================= SECTION 1 ================= -->
+<section id="notice">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="tag">Section 1 · Notice</span>
+      <h2>What I noticed: <em>the sky repeats itself</em></h2>
+      <p>The Sun comes back to the same place in the sky every year. The planets come back too. Anything that repeats so exactly must be following a rule, and I wanted to find the shape behind that rule.</p>
+    </div>
+
+    <div class="grid2">
+      <div class="spot" style="--c: var(--coral)">
+        <h3>Squished circles</h3>
+        <p>Every orbit looks like a circle, but it is a little stretched. This shape is called an <b>ellipse</b>. Pick Mercury in the model and look closely: the Sun is not in the middle.</p>
+      </div>
+      <div class="spot" style="--c: var(--gold)">
+        <h3>One flat plate</h3>
+        <p>Turn the model sideways. All eight orbits lie almost flat, like rings drawn on one dinner plate. A flat surface like this is called a <b>plane</b>.</p>
+      </div>
+      <div class="spot" style="--c: var(--aqua)">
+        <h3>Far means slow</h3>
+        <p>Mercury races. Neptune crawls. The farther a planet is from the Sun, the longer one lap takes, and the pattern is very exact.</p>
+      </div>
+      <div class="spot" style="--c: var(--lilac)">
+        <h3>Spirals in space</h3>
+        <p>The Sun is moving too. Switch to Travel view: a circle that also moves forward becomes a spiral, called a <b>helix</b>. It is the shape of a spring.</p>
+      </div>
+    </div>
+
+    <div class="wonder">
+      <h3>Why I chose this</h3>
+      <p>Most patterns are something you look at. This one we are standing on. Earth is drawing an ellipse right now, at 30 kilometres every second, and nobody feels it.</p>
+      <h3>Questions I started with</h3>
+      <ul>
+        <li>Why an ellipse and not a perfect circle?</li>
+        <li>Why are the far planets slower? Is there a rule that tells how much slower?</li>
+        <li>If the Sun moves, what shape does Earth really draw?</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ================= SECTION 2 ================= -->
+<section id="math">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="tag">Section 2 · Explain</span>
+      <h2>The maths behind it: <em>four short rules</em></h2>
+      <p>Johannes Kepler found the first three rules about 400 years ago by studying the planet Mars. Isaac Newton later showed that all of them come from one thing: gravity.</p>
+    </div>
+
+    <!-- Idea 1 -->
+    <div class="idea" style="--c: var(--coral)">
+      <div class="words">
+        <h3>Rule 1 · An orbit is an ellipse</h3>
+        <p>An ellipse has two special points inside it, called <b>foci</b> (say: FOH-sigh). The Sun sits on one of them. The other one is empty.</p>
+        <div class="formula">d₁ + d₂ = 2a
+          <small>distance to focus 1 + distance to focus 2 = always the same number</small>
+        </div>
+        <p>Watch the two lines in the picture. One gets longer, the other gets shorter, but together they always add up to the same length. That is what makes an ellipse an ellipse.</p>
+        <p>The number <b>e</b> tells how squished it is. 0 is a perfect circle. Close to 1 is very long and thin.</p>
+      </div>
+      <div class="fig">
+        <canvas id="cvFoci" width="640" height="400" aria-label="Ellipse with two foci and a moving planet"></canvas>
+        <div class="readout" id="fociOut"></div>
+        <label class="ctl" for="ecc">Squish (e) <input type="range" id="ecc" min="0" max="95" value="50"> <span id="eccVal" class="readout">0.50</span></label>
+        <div class="chips">
+          <button class="chip" data-e="1.7">Earth 0.017</button>
+          <button class="chip" data-e="9.3">Mars 0.093</button>
+          <button class="chip" data-e="20.6">Mercury 0.206</button>
+          <button class="chip" data-e="95">Comet 0.95</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Idea 2 -->
+    <div class="idea" style="--c: var(--gold)">
+      <div class="words">
+        <h3>Rule 2 · Fast when close, slow when far</h3>
+        <p>Draw a line from the Sun to the planet. As the planet moves, that line sweeps over a slice of space, like a windscreen wiper.</p>
+        <div class="formula">equal time = equal area
+          <small>every slice in the picture took the same time, so every slice has the same area</small>
+        </div>
+        <p>Near the Sun the slice is short, so it has to be wide. The planet must move fast to make it wide. Far from the Sun the slice is long and thin, so the planet moves slowly.</p>
+        <p>The 3D model above uses this rule to move every planet.</p>
+      </div>
+      <div class="fig">
+        <canvas id="cvArea" width="640" height="400" aria-label="Ellipse cut into eight slices of equal area"></canvas>
+        <div class="readout">Speed right now</div>
+        <div class="bar"><i id="speedBar" style="width: 50%"></i></div>
+      </div>
+    </div>
+
+    <!-- Idea 3 -->
+    <div class="idea" style="--c: var(--aqua)">
+      <div class="words">
+        <h3>Rule 3 · Distance tells you the year</h3>
+        <p>Measure distance in <b>AU</b> (1 AU = the distance from Earth to the Sun). Measure time in Earth years. Then:</p>
+        <div class="formula">T² = a³
+          <small>T = time for one lap · a = distance from the Sun</small>
+        </div>
+        <p>In words: <b>year × year = distance × distance × distance</b>. Check the table. The last two columns match for every planet.</p>
+        <p>Try it: Jupiter is 5.2 AU away. 5.2 × 5.2 × 5.2 ≈ 141. Which number times itself gives 141? About 11.9. And Jupiter's year really is 11.9 Earth years.</p>
+        <div class="scroll-x">
+          <table id="k3table"></table>
+        </div>
+      </div>
+      <div class="fig">
+        <div class="scroll-x"><svg id="k3chart" viewBox="0 0 560 400" role="img" aria-label="Chart of distance against time for one lap, all eight planets on one line"></svg></div>
+        <p class="note">All eight planets land on one straight line. Each step on these axes is 10 times bigger than the one before, so tiny Mercury and far Neptune both fit.</p>
+      </div>
+    </div>
+
+    <!-- Idea 4 -->
+    <div class="idea" style="--c: var(--lilac)">
+      <div class="words">
+        <h3>Rule 4 · Circle + straight line = helix</h3>
+        <p>The Sun flies around the centre of our galaxy at about 230 km every second. The planets come along. So a planet does two moves at once: it goes around, and it goes forward.</p>
+        <div class="formula">x = r·cos(t) &nbsp; y = r·sin(t) &nbsp; z = v·t
+          <small>the cos and sin parts draw the circle · the v·t part moves it forward</small>
+        </div>
+        <p>You do not need to know cos and sin yet. They are just the maths way of saying “go around a circle”. Put the three parts together and you get the shape of a spring.</p>
+        <p>The planets’ plate is tilted about 60° to the direction the Sun travels. That is why the spirals in Travel view lean.</p>
+      </div>
+      <div class="words">
+        <h3>Why this happens: gravity</h3>
+        <div class="formula">F = G × M × m ÷ r²
+          <small>F = pull · M and m = the two masses · r = distance between them · G = a fixed number</small>
+        </div>
+        <p>The Sun pulls every planet. The <b>r²</b> on the bottom is the key: twice as far away means the pull is 4 times weaker. Three times as far means 9 times weaker.</p>
+        <p>A weaker pull means a planet needs less speed to stay in orbit. That is why far planets are slow, and it is where Rule 3 comes from.</p>
+      </div>
+    </div>
+
+    <div class="oops">
+      <h3>Mistakes that helped me</h3>
+      <p><b>“Orbits are circles.”</b> That was my first guess. Earth’s squish is only 0.017, so by eye it looks like a circle. I could only see the ellipse when I checked the numbers: Earth is 147 million km from the Sun in January and 152 million km in July.</p>
+      <p><b>“The planets trail behind the Sun like a tail.”</b> Some videos online show this. It is wrong. A planet is in front of the Sun for half of its lap and behind it for the other half. Fixing this made my Travel view correct.</p>
+      <p><b>“Real distances will look good.”</b> They do not. Turn on Real distances in the model: the four inner planets squeeze into a dot. This made me see how empty space is.</p>
+    </div>
+
+    <div class="plain">
+      <h3>Why this maths matters</h3>
+      <ul>
+        <li><b>Satellites and GPS</b> follow the same three rules. Your phone map works because engineers can predict each satellite’s ellipse.</li>
+        <li><b>Mars missions</b> travel on half an ellipse from Earth’s orbit to Mars’s orbit. Rule 3 tells how long the trip takes: about 8 to 9 months.</li>
+        <li><b>Weather and climate satellites</b> stay over one spot on Earth because Rule 3 gives the exact height where one lap takes 24 hours.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ================= SECTION 3 ================= -->
+<section id="create">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="tag">Section 3 · Create</span>
+      <h2>What I made: <em>a Solar System that runs on the formulas</em></h2>
+      <p>My creation is the 3D model at the top of this page. Nothing in it is a recorded video. Every frame, the computer uses the rules from Section 2 to work out where each planet should be.</p>
+    </div>
+
+    <div class="grid2">
+      <div class="spot" style="--c: var(--coral)">
+        <h3>How it connects</h3>
+        <p>Each path is a real ellipse with the Sun on one focus (Rule 1). Each planet speeds up near the Sun (Rule 2). Each lap time comes from T² = a³ (Rule 3). Travel view adds the forward motion (Rule 4).</p>
+      </div>
+      <div class="spot" style="--c: var(--gold)">
+        <h3>Choice 1 · Squeezing the distances</h3>
+        <p>Neptune is really about 78 times farther out than Mercury. On a screen, the inner planets would vanish. So I used the <b>square root</b> of each distance. Now Neptune is only about 6 times farther, and the order stays the same. The Real distances switch shows the true picture.</p>
+      </div>
+      <div class="spot" style="--c: var(--aqua)">
+        <h3>Choice 2 · Keeping time honest</h3>
+        <p>I squeezed space but I did not squeeze time. The lap times are the real ones. Count for yourself: Mercury goes around about 4 times while Earth goes around once.</p>
+      </div>
+      <div class="spot" style="--c: var(--lilac)">
+        <h3>Choice 3 · A shorter spring</h3>
+        <p>The Sun moves almost 8 times faster than Earth, so the real helix is stretched out very long. I made the forward speed smaller so the coils are easy to see. The 60° tilt is real.</p>
+      </div>
+    </div>
+
+    <div class="wonder">
+      <h3>What I hope you notice</h3>
+      <ul>
+        <li>The Sun is never in the exact middle of an orbit.</li>
+        <li>One simple formula, T² = a³, fits all eight planets.</li>
+        <li>A circle and a straight line together make a spiral.</li>
+      </ul>
+      <h3>What I hope you wonder</h3>
+      <ul>
+        <li>What sits on the empty focus? (Nothing. So why is it there?)</li>
+        <li>Do moons, comets and other stars follow the same rules?</li>
+        <li>Where else do simple rules hide inside things that look complicated?</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <span>Planet data: NASA Planetary Fact Sheet (distances, lap times, orbit shapes, speeds).</span>
+    <span>Rules 1–3: Johannes Kepler, 1609 and 1619. Gravity: Isaac Newton, 1687.</span>
+  </div>
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function () {
+  'use strict';
+  var TAU = Math.PI * 2;
+  var reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // a = distance (AU), T = lap time (Earth years), e = squish, w = direction of closest point (deg)
+  var P = [
+    { n: 'Mercury', a: 0.387, T: 0.241, e: 0.206, w: 77,  c: '#c9c1b8', r: 0.5,  v: 47.4, yr: '88 days',     f: 'The fastest planet, with the most squished orbit of the eight.' },
+    { n: 'Venus',   a: 0.723, T: 0.615, e: 0.007, w: 131, c: '#f2c879', r: 0.8,  v: 35.0, yr: '225 days',    f: 'The roundest orbit of all. It is almost a perfect circle.' },
+    { n: 'Earth',   a: 1.000, T: 1.000, e: 0.017, w: 103, c: '#4da3ff', r: 0.85, v: 29.8, yr: '365 days',    f: 'Home. One lap is one year. That is where the word “year” comes from.' },
+    { n: 'Mars',    a: 1.524, T: 1.881, e: 0.093, w: 336, c: '#ff6b4a', r: 0.65, v: 24.1, yr: '687 days',    f: 'Its stretched orbit helped Kepler discover that orbits are ellipses.' },
+    { n: 'Jupiter', a: 5.203, T: 11.86, e: 0.049, w: 15,  c: '#e8a86d', r: 2.0,  v: 13.1, yr: '11.9 years',  f: 'The biggest planet. One lap takes almost 12 Earth years.' },
+    { n: 'Saturn',  a: 9.537, T: 29.45, e: 0.057, w: 93,  c: '#f0d890', r: 1.7,  v: 9.7,  yr: '29.5 years',  f: 'Famous for its rings. One lap takes about 29 Earth years.' },
+    { n: 'Uranus',  a: 19.19, T: 84.01, e: 0.046, w: 171, c: '#7fe3e0', r: 1.2,  v: 6.8,  yr: '84 years',    f: 'So far out that one lap takes 84 years, a whole human lifetime.' },
+    { n: 'Neptune', a: 30.07, T: 164.8, e: 0.010, w: 45,  c: '#6f8cff', r: 1.15, v: 5.4,  yr: '165 years',   f: 'The slowest. It has finished only one lap since it was found in 1846.' }
+  ];
+  P.forEach(function (p, i) { p.wr = p.w * Math.PI / 180; p.ph = i * 2.4; });
+
+  // Solve Kepler's equation M = E - e*sin(E) for E (Rule 2 in action)
+  function solveE(M, e) {
+    M = M % TAU; if (M < 0) M += TAU;
+    var E = e > 0.8 ? Math.PI : M;
+    for (var i = 0; i < 30; i++) {
+      var d = (E - e * Math.sin(E) - M) / (1 - e * Math.cos(E));
+      E -= d;
+      if (Math.abs(d) < 1e-9) break;
+    }
+    return E;
+  }
+
+  /* =====================================================
+     Planet chips + info panel
+     ===================================================== */
+  var selected = 2;
+  var chipsEl = document.getElementById('chips');
+  var infoEl = document.getElementById('info');
+  P.forEach(function (p, i) {
+    var b = document.createElement('button');
+    b.className = 'chip';
+    b.innerHTML = '<i style="background:' + p.c + '"></i>' + p.n;
+    b.addEventListener('click', function () { selected = i; showInfo(); });
+    chipsEl.appendChild(b);
+    p.chip = b;
+  });
+  function showInfo() {
+    var p = P[selected];
+    P.forEach(function (q, i) { q.chip.setAttribute('aria-pressed', i === selected ? 'true' : 'false'); });
+    infoEl.innerHTML =
+      '<h3 style="color:' + p.c + '">' + p.n + '</h3>' +
+      '<span class="stat">Distance from Sun <b>' + Math.round(p.a * 149.6).toLocaleString('en-US') + ' million km</b></span>' +
+      '<span class="stat">One lap <b>' + p.yr + '</b></span>' +
+      '<span class="stat">Speed <b>' + p.v + ' km each second</b></span>' +
+      '<span class="stat">Squish (e) <b>' + p.e.toFixed(3) + '</b></span>' +
+      '<p>' + p.f + '</p>';
+  }
+  showInfo();
+
+  /* =====================================================
+     3D model
+     ===================================================== */
+  var stage = document.getElementById('stage');
+  var yearsEl = document.getElementById('years');
+  var playBtn = document.getElementById('play');
+  var playing = !reduced, t = 0, travel = false, real = false;
+  function syncPlay() { playBtn.textContent = playing ? 'Pause' : 'Play'; }
+  syncPlay();
+  playBtn.addEventListener('click', function () { playing = !playing; syncPlay(); });
+
+  function speedNow() { var x = +document.getElementById('speed').value / 100; return x * x * 5; } // Earth years per second
+
+  function init3D() {
+    if (!window.THREE) throw new Error('no three');
+    var renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.setClearColor(0x050719);
+    stage.insertBefore(renderer.domElement, stage.firstChild);
+
+    var scene = new THREE.Scene();
+    var camera = new THREE.PerspectiveCamera(45, 1, 0.1, 3000);
+    var cam = { r: 115, theta: 0.6, phi: 1.02, target: new THREE.Vector3() };
+
+    scene.add(new THREE.AmbientLight(0x8890c8, 0.55));
+    scene.add(new THREE.PointLight(0xfff2cc, 1.6, 0, 0));
+
+    // stars
+    var sp = new Float32Array(1400 * 3);
+    for (var i = 0; i < 1400; i++) {
+      var u = Math.random() * 2 - 1, th = Math.random() * TAU, R = 500 + Math.random() * 400, s = Math.sqrt(1 - u * u);
+      sp[i * 3] = R * s * Math.cos(th); sp[i * 3 + 1] = R * u; sp[i * 3 + 2] = R * s * Math.sin(th);
+    }
+    var sg = new THREE.BufferGeometry();
+    sg.setAttribute('position', new THREE.BufferAttribute(sp, 3));
+    scene.add(new THREE.Points(sg, new THREE.PointsMaterial({ color: 0xcfd6ff, size: 1.6, sizeAttenuation: false })));
+
+    // sun + glow
+    var sun = new THREE.Mesh(new THREE.SphereGeometry(2.6, 32, 24), new THREE.MeshBasicMaterial({ color: 0xffc93c }));
+    scene.add(sun);
+    var gc = document.createElement('canvas'); gc.width = gc.height = 128;
+    var gx = gc.getContext('2d'), grd = gx.createRadialGradient(64, 64, 4, 64, 64, 64);
+    grd.addColorStop(0, 'rgba(255,220,120,1)'); grd.addColorStop(0.3, 'rgba(255,170,60,.45)'); grd.addColorStop(1, 'rgba(255,140,40,0)');
+    gx.fillStyle = grd; gx.fillRect(0, 0, 128, 128);
+    var glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(gc), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true }));
+    glow.scale.set(16, 16, 1);
+    scene.add(glow);
+
+    function D(p) { return real ? p.a * 1.38 : 3 + 7 * Math.sqrt(p.a); }
+
+    // position of planet p at time tt (Sun at the origin, on one focus)
+    function place(p, tt, out) {
+      var E = solveE(TAU * tt / p.T + p.ph, p.e), d = D(p);
+      var x = d * (Math.cos(E) - p.e), y = d * Math.sqrt(1 - p.e * p.e) * Math.sin(E);
+      var cw = Math.cos(p.wr), sw = Math.sin(p.wr);
+      out.set(x * cw - y * sw, 0, -(x * sw + y * cw));
+    }
+
+    // direction the Sun travels: about 60 degrees up from the planets' plate
+    var DIR = new THREE.Vector3(0.5, 0.866, 0), VT = 5, SPAN = 8, NT = 600;
+    var tmp = new THREE.Vector3();
+
+    P.forEach(function (p) {
+      p.mesh = new THREE.Mesh(new THREE.SphereGeometry(p.r, 24, 18), new THREE.MeshStandardMaterial({ color: p.c, roughness: 0.8 }));
+      scene.add(p.mesh);
+      if (p.n === 'Saturn') {
+        var ring = new THREE.Mesh(new THREE.RingGeometry(p.r * 1.35, p.r * 2.2, 48), new THREE.MeshBasicMaterial({ color: 0xd8c27a, side: THREE.DoubleSide, transparent: true, opacity: 0.75 }));
+        ring.rotation.x = Math.PI / 2 - 0.45;
+        p.mesh.add(ring);
+      }
+      // orbit path
+      p.orbit = new THREE.LineLoop(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: p.c, transparent: true, opacity: 0.6 }));
+      p.orbit.geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(181 * 3), 3));
+      scene.add(p.orbit);
+      // travel trail (fades with age)
+      var col = new Float32Array(NT * 3), c = new THREE.Color(p.c);
+      for (var k = 0; k < NT; k++) { var fade = 1 - k / NT; col[k * 3] = c.r * fade; col[k * 3 + 1] = c.g * fade; col[k * 3 + 2] = c.b * fade; }
+      p.trail = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ vertexColors: true }));
+      p.trail.geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(NT * 3), 3));
+      p.trail.geometry.setAttribute('color', new THREE.BufferAttribute(col, 3));
+      p.trail.frustumCulled = false;
+      p.trail.visible = false;
+      scene.add(p.trail);
+      // label
+      p.label = document.createElement('div');
+      p.label.className = 'plabel';
+      p.label.style.color = p.c;
+      p.label.textContent = p.n;
+      stage.appendChild(p.label);
+    });
+    var sunLabel = document.createElement('div');
+    sunLabel.className = 'plabel'; sunLabel.style.color = '#ffc93c'; sunLabel.textContent = 'Sun';
+    stage.appendChild(sunLabel);
+
+    // the Sun's own straight path in travel view
+    var sunTrail = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ vertexColors: true }));
+    sunTrail.geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array([0, 0, 0, -DIR.x * VT * SPAN, -DIR.y * VT * SPAN, 0]), 3));
+    sunTrail.geometry.setAttribute('color', new THREE.BufferAttribute(new Float32Array([1, 0.79, 0.24, 0, 0, 0]), 3));
+    sunTrail.visible = false;
+    scene.add(sunTrail);
+
+    // drifting dust so you can feel the forward motion
+    var ND = 350, DL = 260, dustBase = [];
+    for (var j = 0; j < ND; j++) dustBase.push([(Math.random() - 0.5) * 220, (Math.random() - 0.5) * 220, Math.random() * DL]);
+    var dust = new THREE.Points(new THREE.BufferGeometry(), new THREE.PointsMaterial({ color: 0x9aa6ff, size: 2, sizeAttenuation: false, transparent: true, opacity: 0.7 }));
+    dust.geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(ND * 3), 3));
+    dust.frustumCulled = false;
+    dust.visible = false;
+    scene.add(dust);
+    var UX = -0.866, UY = 0.5; // sideways direction, at right angles to DIR
+
+    function buildOrbits() {
+      P.forEach(function (p) {
+        var arr = p.orbit.geometry.attributes.position.array, d = D(p), cw = Math.cos(p.wr), sw = Math.sin(p.wr);
+        for (var k = 0; k < 181; k++) {
+          var E = k / 181 * TAU, x = d * (Math.cos(E) - p.e), y = d * Math.sqrt(1 - p.e * p.e) * Math.sin(E);
+          arr[k * 3] = x * cw - y * sw; arr[k * 3 + 1] = 0; arr[k * 3 + 2] = -(x * sw + y * cw);
+        }
+        p.orbit.geometry.attributes.position.needsUpdate = true;
+        p.mesh.scale.setScalar(real ? 0.35 : 1);
+      });
+      sun.scale.setScalar(real ? 0.12 : 1);
+      glow.scale.set(real ? 3 : 16, real ? 3 : 16, 1);
+    }
+    buildOrbits();
+
+    var W = 1, H = 1;
+    function fitDist(base) { var asp = W / H; return asp < 1.3 ? base * 1.3 / asp : base; }
+    function resize() {
+      W = stage.clientWidth; H = stage.clientHeight;
+      renderer.setSize(W, H, false);
+      camera.aspect = W / H; camera.updateProjectionMatrix();
+    }
+    resize();
+    cam.r = fitDist(115);
+    if (window.ResizeObserver) new ResizeObserver(resize).observe(stage); else window.addEventListener('resize', resize);
+
+    // view buttons
+    var bO = document.getElementById('viewOrbit'), bT = document.getElementById('viewTravel');
+    function setView(tr) {
+      travel = tr;
+      bO.setAttribute('aria-pressed', tr ? 'false' : 'true');
+      bT.setAttribute('aria-pressed', tr ? 'true' : 'false');
+      P.forEach(function (p) { p.trail.visible = tr; p.orbit.material.opacity = tr ? 0.18 : 0.6; });
+      sunTrail.visible = tr; dust.visible = tr;
+      if (tr) { cam.target.copy(DIR).multiplyScalar(-13); cam.phi = 1.35; cam.theta = 0.25; cam.r = fitDist(125); }
+      else { cam.target.set(0, 0, 0); cam.phi = 1.02; cam.theta = 0.6; cam.r = fitDist(115); }
+    }
+    bO.addEventListener('click', function () { setView(false); });
+    bT.addEventListener('click', function () { setView(true); });
+    document.getElementById('real').addEventListener('change', function (ev) { real = ev.target.checked; buildOrbits(); });
+    document.getElementById('zoomIn').addEventListener('click', function () { cam.r = Math.max(8, cam.r * 0.75); });
+    document.getElementById('zoomOut').addEventListener('click', function () { cam.r = Math.min(400, cam.r / 0.75); });
+
+    // drag to turn
+    var drag = null;
+    stage.addEventListener('pointerdown', function (ev) { drag = { x: ev.clientX, y: ev.clientY }; stage.classList.add('dragging'); });
+    window.addEventListener('pointermove', function (ev) {
+      if (!drag) return;
+      cam.theta -= (ev.clientX - drag.x) * 0.006;
+      cam.phi = Math.min(Math.PI - 0.05, Math.max(0.05, cam.phi - (ev.clientY - drag.y) * 0.006));
+      drag.x = ev.clientX; drag.y = ev.clientY;
+    });
+    function endDrag() { drag = null; stage.classList.remove('dragging'); }
+    window.addEventListener('pointerup', endDrag);
+    window.addEventListener('pointercancel', endDrag);
+
+    function putLabel(el, pos, dy) {
+      tmp.copy(pos).project(camera);
+      if (tmp.z > 1 || tmp.z < -1) { el.hidden = true; return; }
+      el.hidden = false;
+      el.style.transform = 'translate(' + ((tmp.x * 0.5 + 0.5) * W + 8).toFixed(1) + 'px,' + ((-tmp.y * 0.5 + 0.5) * H - dy).toFixed(1) + 'px)';
+    }
+
+    var last = performance.now();
+    function frame(now) {
+      requestAnimationFrame(frame);
+      var dt = Math.min(0.05, (now - last) / 1000); last = now;
+      if (playing) t += dt * speedNow();
+      yearsEl.textContent = t.toFixed(1);
+
+      P.forEach(function (p, i) {
+        place(p, t, p.mesh.position);
+        var s = (real ? 0.35 : 1) * (i === selected ? 1.5 : 1);
+        p.mesh.scale.setScalar(s);
+        p.label.style.fontSize = i === selected ? '.95rem' : '';
+        if (travel) {
+          var arr = p.trail.geometry.attributes.position.array;
+          for (var k = 0; k < NT; k++) {
+            var age = k / NT * SPAN;
+            place(p, t - age, tmp);
+            arr[k * 3] = tmp.x - DIR.x * VT * age;
+            arr[k * 3 + 1] = tmp.y - DIR.y * VT * age;
+            arr[k * 3 + 2] = tmp.z;
+          }
+          p.trail.geometry.attributes.position.needsUpdate = true;
+        }
+      });
+      if (travel) {
+        var da = dust.geometry.attributes.position.array, shift = t * VT;
+        for (var j = 0; j < ND; j++) {
+          var b = dustBase[j], along = DL / 2 - ((b[2] + shift) % DL);
+          da[j * 3] = UX * b[0] + DIR.x * along;
+          da[j * 3 + 1] = UY * b[0] + DIR.y * along;
+          da[j * 3 + 2] = b[1];
+        }
+        dust.geometry.attributes.position.needsUpdate = true;
+      }
+
+      var sp_ = Math.sin(cam.phi);
+      camera.position.set(cam.target.x + cam.r * sp_ * Math.sin(cam.theta), cam.target.y + cam.r * Math.cos(cam.phi), cam.target.z + cam.r * sp_ * Math.cos(cam.theta));
+      camera.lookAt(cam.target);
+      camera.updateMatrixWorld();
+      renderer.render(scene, camera);
+      P.forEach(function (p) { putLabel(p.label, p.mesh.position, 14); });
+      putLabel(sunLabel, sun.position, 20);
+    }
+    requestAnimationFrame(frame);
+  }
+
+  try { init3D(); }
+  catch (err) {
+    var msg = document.createElement('p');
+    msg.style.cssText = 'position:absolute;inset:0;margin:auto;height:3em;text-align:center;padding:0 20px';
+    msg.textContent = 'The 3D model could not start in this browser. The pictures and formulas below still work.';
+    stage.appendChild(msg);
+  }
+
+  /* =====================================================
+     2D ellipse pictures (Rule 1 and Rule 2)
+     ===================================================== */
+  var cvF = document.getElementById('cvFoci'), cvA = document.getElementById('cvArea');
+  var eccIn = document.getElementById('ecc'), eccVal = document.getElementById('eccVal');
+  var fociOut = document.getElementById('fociOut'), speedBar = document.getElementById('speedBar');
+  var t2 = 0;
+
+  document.querySelectorAll('[data-e]').forEach(function (b) {
+    b.addEventListener('click', function () { eccIn.value = b.getAttribute('data-e'); eccIn.dataset.exact = b.getAttribute('data-e'); });
+  });
+  eccIn.addEventListener('input', function () { delete eccIn.dataset.exact; });
+
+  function prep(cv) {
+    var dpr = Math.min(window.devicePixelRatio || 1, 2), w = cv.clientWidth, h = cv.clientHeight;
+    if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
+    var g = cv.getContext('2d');
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    g.clearRect(0, 0, w, h);
+    return { g: g, w: w, h: h };
+  }
+  function dot(g, x, y, r, col) { g.beginPath(); g.arc(x, y, r, 0, TAU); g.fillStyle = col; g.fill(); }
+
+  function drawFoci() {
+    var e = +(eccIn.dataset.exact || eccIn.value) / 100;
+    eccVal.textContent = e.toFixed(3);
+    var c = prep(cvF), g = c.g, a = Math.min(c.w * 0.44, c.h * 0.8), b = a * Math.sqrt(1 - e * e);
+    var cx = c.w / 2, cy = c.h / 2, f = a * e;
+    var E = solveE(t2 * 0.9, e), px = cx + a * Math.cos(E), py = cy - b * Math.sin(E);
+    g.lineWidth = 3; g.strokeStyle = '#ff7a6b';
+    g.beginPath(); g.ellipse(cx, cy, a, b, 0, 0, TAU); g.stroke();
+    g.lineWidth = 2.5;
+    g.strokeStyle = '#ffc93c'; g.beginPath(); g.moveTo(cx + f, cy); g.lineTo(px, py); g.stroke();
+    g.strokeStyle = '#3de0d0'; g.beginPath(); g.moveTo(cx - f, cy); g.lineTo(px, py); g.stroke();
+    dot(g, cx + f, cy, 11, '#ffc93c');
+    g.lineWidth = 2; g.strokeStyle = '#3de0d0'; g.beginPath(); g.arc(cx - f, cy, 6, 0, TAU); g.stroke();
+    dot(g, px, py, 7, '#4da3ff');
+    g.font = '700 13px Nunito, sans-serif'; g.textAlign = 'center';
+    g.fillStyle = '#ffc93c'; g.fillText('Sun (focus 1)', Math.min(c.w - 48, cx + f), cy + 30);
+    if (e > 0.12) { g.fillStyle = '#3de0d0'; g.fillText('empty focus 2', Math.max(48, cx - f), cy + 26); }
+    var d1 = 10 * (1 - e * Math.cos(E)), d2 = 10 * (1 + e * Math.cos(E));
+    fociOut.innerHTML = '<span style="color:#ffc93c">d₁ = ' + d1.toFixed(1) + '</span> &nbsp;+&nbsp; <span style="color:#3de0d0">d₂ = ' + d2.toFixed(1) + '</span> &nbsp;=&nbsp; <b>' + (d1 + d2).toFixed(1) + '</b> &nbsp;(always)';
+  }
+
+  function drawArea() {
+    var e = 0.6, c = prep(cvA), g = c.g, a = Math.min(c.w * 0.44, c.h * 0.58), b = a * Math.sqrt(1 - e * e);
+    var cx = c.w / 2, cy = c.h / 2, sx = cx + a * e, N = 8;
+    for (var i = 0; i < N; i++) {
+      g.beginPath(); g.moveTo(sx, cy);
+      for (var k = 0; k <= 24; k++) {
+        var E = solveE((i + k / 24) / N * TAU, e);
+        if (i + k / 24 >= N) E = TAU;
+        g.lineTo(cx + a * Math.cos(E), cy - b * Math.sin(E));
+      }
+      g.closePath();
+      g.fillStyle = i % 2 ? 'rgba(255,201,60,.38)' : 'rgba(255,122,107,.38)';
+      g.fill();
+    }
+    g.lineWidth = 3; g.strokeStyle = '#ffc93c';
+    g.beginPath(); g.ellipse(cx, cy, a, b, 0, 0, TAU); g.stroke();
+    var Ep = solveE(t2 * 0.9, e), px = cx + a * Math.cos(Ep), py = cy - b * Math.sin(Ep);
+    g.lineWidth = 2.5; g.strokeStyle = '#eef0ff'; g.beginPath(); g.moveTo(sx, cy); g.lineTo(px, py); g.stroke();
+    dot(g, sx, cy, 11, '#ffc93c');
+    dot(g, px, py, 7, '#4da3ff');
+    var r = 1 - e * Math.cos(Ep), v = Math.sqrt(2 / r - 1), vmax = Math.sqrt((1 + e) / (1 - e));
+    speedBar.style.width = (v / vmax * 100).toFixed(1) + '%';
+  }
+
+  var last2 = performance.now();
+  function loop2(now) {
+    requestAnimationFrame(loop2);
+    var dt = Math.min(0.05, (now - last2) / 1000); last2 = now;
+    if (!reduced) t2 += dt; else t2 = 1.2;
+    drawFoci(); drawArea();
+  }
+  requestAnimationFrame(loop2);
+
+  /* =====================================================
+     Rule 3: table + chart
+     ===================================================== */
+  function fmt(x) { return x >= 1000 ? Math.round(x).toLocaleString('en-US') : x >= 100 ? x.toFixed(0) : x >= 10 ? x.toFixed(1) : x >= 1 ? x.toFixed(2) : x.toFixed(3); }
+  var rows = '<tr><th>Planet</th><th>a (AU)</th><th>T (years)</th><th>a × a × a</th><th>T × T</th></tr>';
+  P.forEach(function (p) {
+    rows += '<tr><td style="color:' + p.c + ';font-weight:800">' + p.n + '</td><td>' + p.a + '</td><td>' + p.T + '</td><td class="match">' + fmt(p.a * p.a * p.a) + '</td><td class="match">' + fmt(p.T * p.T) + '</td></tr>';
+  });
+  document.getElementById('k3table').innerHTML = rows;
+
+  (function chart() {
+    var L = 64, R = 540, T = 20, B = 340;
+    var x0 = Math.log10(0.25), x1 = Math.log10(50), y0 = Math.log10(0.1), y1 = Math.log10(300);
+    function X(a) { return L + (Math.log10(a) - x0) / (x1 - x0) * (R - L); }
+    function Y(v) { return B - (Math.log10(v) - y0) / (y1 - y0) * (B - T); }
+    var s = '';
+    [0.5, 1, 2, 5, 10, 20, 40].forEach(function (a) {
+      s += '<line x1="' + X(a) + '" y1="' + T + '" x2="' + X(a) + '" y2="' + B + '" stroke="#2c3684" stroke-width="1"/>';
+      s += '<text x="' + X(a) + '" y="' + (B + 18) + '" fill="#aab1e6" font-size="12" text-anchor="middle">' + a + '</text>';
+    });
+    [0.1, 1, 10, 100].forEach(function (v) {
+      s += '<line x1="' + L + '" y1="' + Y(v) + '" x2="' + R + '" y2="' + Y(v) + '" stroke="#2c3684" stroke-width="1"/>';
+      s += '<text x="' + (L - 8) + '" y="' + (Y(v) + 4) + '" fill="#aab1e6" font-size="12" text-anchor="end">' + v + '</text>';
+    });
+    s += '<line x1="' + X(0.3) + '" y1="' + Y(Math.pow(0.3, 1.5)) + '" x2="' + X(44) + '" y2="' + Y(Math.pow(44, 1.5)) + '" stroke="#3de0d0" stroke-width="2.5"/>';
+    s += '<text x="' + (X(2.6) - 10) + '" y="' + (Y(Math.pow(2.6, 1.5)) - 12) + '" fill="#3de0d0" font-size="14" font-weight="700" text-anchor="end">the rule T² = a³</text>';
+    P.forEach(function (p) {
+      s += '<circle cx="' + X(p.a) + '" cy="' + Y(p.T) + '" r="7" fill="' + p.c + '" stroke="#050719" stroke-width="2"/>';
+      s += '<text x="' + (X(p.a) + 11) + '" y="' + (Y(p.T) + 15) + '" fill="#eef0ff" font-size="12.5" font-weight="700">' + p.n + '</text>';
+    });
+    s += '<text x="' + (L + R) / 2 + '" y="' + (B + 42) + '" fill="#eef0ff" font-size="13" font-weight="700" text-anchor="middle">Distance from the Sun (AU · Earth = 1)</text>';
+    s += '<text transform="translate(16 ' + (T + B) / 2 + ') rotate(-90)" fill="#eef0ff" font-size="13" font-weight="700" text-anchor="middle">Time for one lap (Earth years)</text>';
+    var svg = document.getElementById('k3chart');
+    svg.setAttribute('font-family', 'Nunito, Segoe UI, sans-serif');
+    svg.innerHTML = s;
+  })();
+})();
+</script>
